@@ -5,6 +5,7 @@ El contrato inteligente `PasarelaPago` cobra en **ETH de prueba** las reservas d
 - **Red:** Base Sepolia (chain id 84532).
 - **Hecho con:** [Foundry](https://getfoundry.sh) y [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/5.x/) v5.7.0 (`Ownable`, `ReentrancyGuard`).
 - **Repos relacionados:** el backend (PHP), que verifica los pagos leyendo el evento `PagoRealizado` y firma `devolver` y `liquidar` con la billetera de la plataforma, y el frontend, que llama a `pagarSena` y `pagarSaldo` desde MetaMask.
+- **Documentación:** [diseño del contrato](docs/contrato.md) (arquitectura, diagramas, decisiones, costos y limitaciones) y [pruebas y seguridad](docs/pruebas-y-seguridad.md) (tests, amenazas cubiertas, Slither y ensayos).
 - **ABI:** [`abi/PasarelaPago.json`](abi/PasarelaPago.json). Se regenera con `forge inspect PasarelaPago abi --json > abi/PasarelaPago.json`.
 
 ## Despliegue actual
