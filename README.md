@@ -1,34 +1,60 @@
 # HayLugar: contrato de pagos
 
-El contrato inteligente `PasarelaPago` cobra en **ETH de prueba** las reservas de HayLugar (Alojamiento temporario, Seminario UNLu) y **retiene el dinero** hasta que el huésped ingresa o cancela.
+El contrato inteligente `PasarelaPago` cobra en **ETH de prueba** las reservas de HayLugar (Alojamiento temporario, Seminario UNLu) y **retiene el dinero** (*escrow*) hasta que el huésped ingresa o cancela.
 
 - **Red:** Base Sepolia (chain id 84532).
-- **Hecho con:** [Foundry](https://getfoundry.sh) y [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/5.x/) v5.7.0.
-- **Repos relacionados:** el backend (PHP), que verifica los pagos leyendo el evento `PagoRealizado`, y el frontend, que llama a `pagarSena` y `pagarSaldo` desde MetaMask.
+- **Hecho con:** [Foundry](https://getfoundry.sh) y [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/5.x/) v5.7.0 (`Ownable`, `ReentrancyGuard`).
+- **Repos relacionados:** el backend (PHP), que verifica los pagos leyendo el evento `PagoRealizado` y firma `devolver` y `liquidar` con la billetera de la plataforma, y el frontend, que llama a `pagarSena` y `pagarSaldo` desde MetaMask.
+- **ABI:** [`abi/PasarelaPago.json`](abi/PasarelaPago.json). Se regenera con `forge inspect PasarelaPago abi --json > abi/PasarelaPago.json`.
 
-## Estado
+## El recorrido del dinero
 
-| Versión | Qué tiene |
-|---|---|
-| 1 (actual) | `pagarSena(reservaId)` y `pagarSaldo(reservaId)`, con el evento `PagoRealizado` |
-| 2 (próxima) | `devolver` y `liquidar`, solo para la billetera de la plataforma |
+| Momento | Quién firma | Función | Qué pasa con el ETH |
+|---|---|---|---|
+| El huésped reserva | El huésped (MetaMask) | `pagarSena(reservaId)` | Entra al contrato y queda retenido |
+| Antes del ingreso | Cualquier billetera (MetaMask) | `pagarSaldo(reservaId)` | Entra al contrato y queda retenido |
+| El huésped ingresa | La plataforma (el back) | `liquidar(reservaId, destinatarios, montos)` | Sale hacia el propietario, el administrador y la comisión de la plataforma |
+| El huésped cancela | La plataforma (el back) | `devolver(reservaId, huesped, monto)` | Le vuelve al huésped lo que no se retiene. Lo retenido se liquida después con `liquidar` |
+
+El contrato **no conoce los precios ni la política de cancelación**: están en pesos en la base de datos. El back calcula los montos. Lo que el contrato **garantiza**, aunque el back se equivoque o le roben la clave:
+
+1. Solo la plataforma (la `owner`) puede sacar ETH.
+2. Una devolución solo le paga al huésped que pagó la seña de esa reserva, y una sola vez.
+3. De una reserva nunca sale más ETH del que entró para ella (`liberado ≤ depositado`). Una reserva no puede usar el ETH de otra.
 
 ## Funciones
 
-| Función | Quién la llama | Qué hace |
+| Función | Quién | Reglas |
 |---|---|---|
-| `pagarSena(uint256 reservaId)` *payable* | El huésped | Anota al huésped de la reserva y retiene el ETH. Una sola vez por reserva |
-| `pagarSaldo(uint256 reservaId)` *payable* | Cualquier billetera | Retiene el ETH del saldo. Solo si ya hay seña, y una sola vez |
-| `reservas(uint256 reservaId)` *view* | Cualquiera | Devuelve el huésped, lo depositado en wei y si el saldo está pago |
+| `pagarSena(uint256 reservaId)` *payable* | El huésped | Con ETH. Una sola vez por reserva. Anota al huésped |
+| `pagarSaldo(uint256 reservaId)` *payable* | Cualquiera | Con ETH. Solo con seña, sin devolución, y una sola vez |
+| `devolver(uint256 reservaId, address huesped, uint256 monto)` | La plataforma | Al huésped de la seña, una sola vez, sin pasarse de lo disponible. Después la reserva no acepta más pagos |
+| `liquidar(uint256 reservaId, address[] destinatarios, uint256[] montos)` | La plataforma | Varias veces si hace falta, sin pasarse de lo disponible. Si un destinatario no acepta el ETH, se deshace entera |
+| `disponible(uint256 reservaId)` *view* | Cualquiera | Lo que le queda a la reserva en el contrato, en wei |
+| `reservas(uint256 reservaId)` *view* | Cualquiera | `huesped`, `depositado`, `liberado`, `saldoPagado`, `devuelta` |
+| `transferOwnership(address)` | La plataforma | Cambia la billetera de la plataforma (por ejemplo, si se cambia la clave) |
+| `renounceOwnership()` | — | Anulada: sin dueña, el ETH retenido quedaría trabado |
 
-El contrato **no conoce los precios**: están en pesos en la base de datos del back. El back controla en el evento que el monto pagado sea el de la reserva antes de confirmarla.
+## Para el back: eventos y selectores
 
-### Evento
+Los montos van en **wei** (1 ETH = 10¹⁸ wei). `reservaId` es el id de la reserva en la base de datos.
 
-```solidity
-event PagoRealizado(uint256 indexed reservaId, address indexed pagador, uint256 monto, Tipo tipo);
-// tipo: 0 = seña, 1 = saldo (en el ABI es un uint8). monto en wei.
-```
+| Evento | Firma | `topics[0]` |
+|---|---|---|
+| `PagoRealizado(uint256 indexed reservaId, address indexed pagador, uint256 monto, uint8 tipo)` | tipo: 0 = seña, 1 = saldo | `0x26595ff0dee9598a8c85c81c2b2cac01dcd205cfe43ba94cf10fde1e4598a161` |
+| `Devolucion(uint256 indexed reservaId, address indexed huesped, uint256 monto)` | | `0x863d633bde39b1de066d4d8f336fb58af95304f73c18bde19f376fc74ebb18d2` |
+| `Liquidacion(uint256 indexed reservaId, address indexed destinatario, uint256 monto)` | Uno por destinatario | `0x16ce0b50c4467a90f7f08794f1f4b069f3a2b20648da22d871bc3ffdb146882e` |
+
+En un log, `topics[1]` es el `reservaId` y `topics[2]` la billetera (los dos con ceros a la izquierda hasta 32 bytes). En `data` van el `monto` y, en `PagoRealizado`, el `tipo`. **El back tiene que controlar además que el log lo emitió la dirección de este contrato**: cualquiera puede desplegar otro contrato con un evento del mismo nombre.
+
+| Función | Selector |
+|---|---|
+| `pagarSena(uint256)` | `0xa2034aa4` |
+| `pagarSaldo(uint256)` | `0x78bcbeeb` |
+| `devolver(uint256,address,uint256)` | `0xfd7f3319` |
+| `liquidar(uint256,address[],uint256[])` | `0xfc500b5f` |
+
+Los errores del contrato (por ejemplo, `FondosInsuficientes(reservaId, disponible, pedido)`) están en el ABI.
 
 ## Cómo usarlo
 
@@ -48,6 +74,15 @@ git submodule update --init --recursive
 | `forge coverage` | Mide la cobertura de los tests |
 | `forge fmt` | Formatea el código (el CI controla que esté formateado) |
 
-## Seguridad
+## Calidad y seguridad
+
+- **Tests:** 32, con 3 *fuzz* de 256 casos cada uno. Incluyen un ataque de reentrada y destinatarios que rechazan el ETH.
+- **Cobertura:** 100 % de líneas, instrucciones, ramas y funciones de `PasarelaPago.sol`.
+- **Slither** 0.11.6 (`slither . --filter-paths "lib|test"`): **sin hallazgos High ni Medium**. Quedan dos avisos, revisados y aceptados:
+
+| Aviso | Severidad | Por qué se acepta |
+|---|---|---|
+| `calls-loop` en `liquidar` | Low | Manda ETH a varios destinatarios en un bucle. Si uno lo rechaza, la liquidación entera se deshace (nadie cobra a medias) y la plataforma la puede repetir sin ese destinatario. Los destinatarios los elige solo la plataforma |
+| `low-level-calls` en `devolver` y `liquidar` | Informational | `call{value: ...}` es la forma recomendada de mandar ETH (`transfer` limita el gas a 2300 y puede fallar con billeteras inteligentes). Se controla el resultado y se revierte si falla |
 
 - La clave privada de la billetera de la plataforma **nunca** va al repo: se usa desde un archivo `.env`, que está en el `.gitignore`.
