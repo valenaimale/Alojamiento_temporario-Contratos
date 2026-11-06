@@ -7,6 +7,19 @@ El contrato inteligente `PasarelaPago` cobra en **ETH de prueba** las reservas d
 - **Repos relacionados:** el backend (PHP), que verifica los pagos leyendo el evento `PagoRealizado` y firma `devolver` y `liquidar` con la billetera de la plataforma, y el frontend, que llama a `pagarSena` y `pagarSaldo` desde MetaMask.
 - **ABI:** [`abi/PasarelaPago.json`](abi/PasarelaPago.json). Se regenera con `forge inspect PasarelaPago abi --json > abi/PasarelaPago.json`.
 
+## Despliegue actual
+
+| Dato | Valor |
+|---|---|
+| Red | Base Sepolia (chain id 84532) |
+| Contrato | [`0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4`](https://sepolia.basescan.org/address/0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4) |
+| Dueña (billetera de la plataforma) | [`0x734779432891a4E2C9152FdF6eCFFC34825b36B4`](https://sepolia.basescan.org/address/0x734779432891a4E2C9152FdF6eCFFC34825b36B4) |
+| Transacción de despliegue | [`0x8950fa26…3c4ec7`](https://sepolia.basescan.org/tx/0x8950fa266242149b817193c638a1a66c2846fda46e899486760ea761633c4ec7) |
+| Código verificado | [Blockscout](https://base-sepolia.blockscout.com/address/0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4?tab=contract) y [Sourcify](https://repo.sourcify.dev/84532/0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4) (*exact match*) |
+| RPC público | `https://sepolia.base.org` |
+
+El registro completo del despliegue está en [`broadcast/Desplegar.s.sol/84532/run-latest.json`](broadcast/Desplegar.s.sol/84532/run-latest.json).
+
 ## El recorrido del dinero
 
 | Momento | Quién firma | Función | Qué pasa con el ETH |
