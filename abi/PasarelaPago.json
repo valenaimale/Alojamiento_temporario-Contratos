@@ -1,0 +1,425 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "plataforma",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "devolver",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "huesped",
+        "type": "address",
+        "internalType": "address payable"
+      },
+      {
+        "name": "monto",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "disponible",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "liquidar",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "destinatarios",
+        "type": "address[]",
+        "internalType": "address payable[]"
+      },
+      {
+        "name": "montos",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pagarSaldo",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "pagarSena",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "renounceOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "reservas",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "huesped",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "depositado",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "liberado",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "saldoPagado",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "devuelta",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "Devolucion",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "huesped",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "monto",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Liquidacion",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "destinatario",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "monto",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PagoRealizado",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "pagador",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "monto",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "tipo",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum PasarelaPago.Tipo"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "DestinatarioInvalido",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FondosInsuficientes",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "disponible",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "pedido",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "HuespedIncorrecto",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "esperado",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "recibido",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ListasInvalidas",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MontoInvalido",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OwnableInvalidOwner",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OwnableUnauthorizedAccount",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RenunciaNoPermitida",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ReservaDevuelta",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SaldoYaPagado",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenaYaPagada",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SinSena",
+    "inputs": [
+      {
+        "name": "reservaId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TransferenciaFallida",
+    "inputs": [
+      {
+        "name": "destinatario",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "monto",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  }
+]
