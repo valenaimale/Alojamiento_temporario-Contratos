@@ -16,3 +16,4 @@ out/
 .env
 .env.*
 !.env.example
+/broadcast/**/*.lock
