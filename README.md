@@ -74,6 +74,33 @@ git submodule update --init --recursive
 | `forge coverage` | Mide la cobertura de los tests |
 | `forge fmt` | Formatea el código (el CI controla que esté formateado) |
 
+## Despliegue
+
+El script [`script/Desplegar.s.sol`](script/Desplegar.s.sol) despliega el contrato con la billetera de la plataforma como dueña. Solo acepta Base Sepolia (84532) o Anvil (31337): se niega a desplegar en una red real. Desplegar en Base Sepolia cuesta unas 0,00002 ETH de prueba.
+
+**Ensayo local con Anvil** (cuentas de prueba con ETH falso; la clave es la cuenta 0 de Anvil, pública y sin valor):
+
+```bash
+anvil                                   # en otra terminal
+PLATAFORMA_DIRECCION=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 \
+forge script script/Desplegar.s.sol --rpc-url anvil --broadcast \
+  --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+```
+
+**En Base Sepolia:**
+
+1. Crear la billetera de la plataforma: `cast wallet new`. Guardar la clave privada en un lugar seguro (gestor de contraseñas).
+2. Importarla al keystore cifrado de Foundry: `cast wallet import plataforma --interactive` (pide la clave y una contraseña).
+3. Cargarle ETH de prueba de Base Sepolia con un faucet.
+4. Copiar `.env.example` como `.env` y completar `PLATAFORMA_DIRECCION` y `ETHERSCAN_API_KEY` (una clave gratuita de etherscan.io, que sirve para basescan).
+5. Desplegar y verificar el código en basescan (forge lee el `.env` solo):
+   ```bash
+   forge script script/Desplegar.s.sol --rpc-url base_sepolia --account plataforma --broadcast --verify
+   ```
+6. La dirección del contrato queda en la salida y en `broadcast/Desplegar.s.sol/84532/run-latest.json`.
+
+Un contrato desplegado **no se puede modificar**. Si hace falta un cambio, se despliega una versión nueva (con otra dirección y sin las reservas de la anterior) y se actualiza la dirección en el back y en el front.
+
 ## Calidad y seguridad
 
 - **Tests:** 32, con 3 *fuzz* de 256 casos cada uno. Incluyen un ataque de reentrada y destinatarios que rechazan el ETH.
