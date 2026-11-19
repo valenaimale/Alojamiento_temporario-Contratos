@@ -9,7 +9,7 @@ Cómo se probó el contrato y qué riesgos cubre. El diseño está en [`contrato
 | Tests unitarios | Foundry (`forge test`) | 29 tests, todos pasan |
 | Tests *fuzz* | Foundry, 256 casos al azar por test | 3 tests, todos pasan |
 | Cobertura | `forge coverage` | **100 %** de líneas, instrucciones, ramas y funciones de `PasarelaPago.sol` |
-| Análisis estático | Slither 0.11.6 | **Sin hallazgos High ni Medium** (2 avisos Low/Informational justificados) |
+| Análisis estático | Slither 0.11.6 | **Sin hallazgos High ni Medium** (2 avisos Low/Informational justificados). Corre en el CI en cada push y PR, y falla si aparece uno High o Medium |
 | Formato | `forge fmt --check` | En el CI de GitHub Actions, en cada push y PR |
 | Ensayo de punta a punta | Anvil (red local) | Despliegue, pagos, liquidación y devolución con transacciones reales |
 | Despliegue real | Base Sepolia | Bytecode idéntico al del repo y código verificado en los exploradores |
@@ -20,7 +20,7 @@ Para reproducirlo:
 forge test                       # los 32 tests
 forge test --gas-report          # con el gas de cada función
 forge coverage                   # la cobertura
-slither . --filter-paths "lib|test"
+slither .                        # el análisis estático (con slither.config.json)
 ```
 
 ## 2. Estrategia de tests
@@ -76,11 +76,15 @@ Un test *fuzz* recibe parámetros y Foundry lo corre 256 veces con valores al az
 
 [Slither](https://github.com/crytic/slither) es un analizador estático de Trail of Bits que busca patrones de vulnerabilidades conocidos.
 
+La configuración está en [`slither.config.json`](../slither.config.json): analiza solo `src/` (deja afuera `lib/`, `test/` y `script/`) y termina con error si encuentra un hallazgo de severidad **Medium o High**. El job "Análisis estático (Slither)" de [`.github/workflows/test.yml`](../.github/workflows/test.yml) lo corre en cada push y PR, con la misma versión. Así, un cambio que agregue una vulnerabilidad conocida aparece en rojo antes de mergearse.
+
+Para correrlo en la máquina de cada uno:
+
 ```bash
 python -m venv ~/.venvs/slither
 ~/.venvs/slither/Scripts/pip install slither-analyzer==0.11.6   # en Linux/macOS: bin/pip
-slither . --filter-paths "lib|test"                              # sin las librerías ni los tests
-slither . --filter-paths "lib|test" --exclude-low --exclude-informational --exclude-optimization
+slither .                                                        # usa slither.config.json
+slither . --exclude-low --exclude-informational --exclude-optimization
 # → 0 result(s) found
 ```
 

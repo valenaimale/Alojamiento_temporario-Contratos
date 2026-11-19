@@ -119,7 +119,7 @@ Un contrato desplegado **no se puede modificar**. Si hace falta un cambio, se de
 
 - **Tests:** 32, con 3 *fuzz* de 256 casos cada uno. Incluyen un ataque de reentrada y destinatarios que rechazan el ETH.
 - **Cobertura:** 100 % de líneas, instrucciones, ramas y funciones de `PasarelaPago.sol`.
-- **Slither** 0.11.6 (`slither . --filter-paths "lib|test"`): **sin hallazgos High ni Medium**. Quedan dos avisos, revisados y aceptados:
+- **Slither** 0.11.6 (`slither .`, con [`slither.config.json`](slither.config.json)): **sin hallazgos High ni Medium**. Corre en el CI en cada push y PR, y falla si aparece uno. Quedan dos avisos, revisados y aceptados:
 
 | Aviso | Severidad | Por qué se acepta |
 |---|---|---|

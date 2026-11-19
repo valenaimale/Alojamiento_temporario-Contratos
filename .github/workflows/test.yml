@@ -33,3 +33,27 @@ jobs:
 
       - name: Run Forge tests
         run: forge test -vvv
+
+  # Análisis estático con Slither (Trail of Bits): lee el contrato sin ejecutarlo y lo compara con ~100 patrones de
+  # errores conocidos. Usa slither.config.json: solo mira src/ y falla con hallazgos de severidad media o alta.
+  # Los de severidad baja e informativos que ya revisamos están explicados en docs/ (sección Slither).
+  slither:
+    name: Análisis estático (Slither)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      # Slither compila el contrato con forge
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Slither
+        run: pipx install slither-analyzer==0.11.6
+
+      - name: Run Slither
+        run: slither .
