@@ -90,7 +90,7 @@ git submodule update --init --recursive
 
 ## Despliegue
 
-El script [`script/Desplegar.s.sol`](script/Desplegar.s.sol) despliega el contrato con la billetera de la plataforma como dueña. Solo acepta Base Sepolia (84532) o Anvil (31337): se niega a desplegar en una red real. Desplegar en Base Sepolia cuesta unas 0,00002 ETH de prueba.
+El script [`script/Desplegar.s.sol`](script/Desplegar.s.sol) despliega el contrato con la billetera de la plataforma como dueña. Solo acepta Base Sepolia (84532) o Anvil (31337): se niega a desplegar en una red real. Desplegarlo en Base Sepolia costó 0,0000083 ETH de prueba (1.389.190 de gas; el detalle de costos está en [docs/contrato.md](docs/contrato.md)).
 
 **Ensayo local con Anvil** (cuentas de prueba con ETH falso; la clave es la cuenta 0 de Anvil, pública y sin valor):
 
@@ -126,4 +126,4 @@ Un contrato desplegado **no se puede modificar**. Si hace falta un cambio, se de
 | `calls-loop` en `liquidar` | Low | Manda ETH a varios destinatarios en un bucle. Si uno lo rechaza, la liquidación entera se deshace (nadie cobra a medias) y la plataforma la puede repetir sin ese destinatario. Los destinatarios los elige solo la plataforma |
 | `low-level-calls` en `devolver` y `liquidar` | Informational | `call{value: ...}` es la forma recomendada de mandar ETH (`transfer` limita el gas a 2300 y puede fallar con billeteras inteligentes). Se controla el resultado y se revierte si falla |
 
-- La clave privada de la billetera de la plataforma **nunca** va al repo: se usa desde un archivo `.env`, que está en el `.gitignore`.
+- La clave privada de la billetera de la plataforma **nunca** va al repo ni a un archivo de texto: está en el keystore cifrado de Foundry (`cast wallet import plataforma`) y `forge` la usa con `--account plataforma`, pidiendo la contraseña. El `.env` (en el `.gitignore`) solo tiene la dirección pública y la clave de API de Etherscan.
