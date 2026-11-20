@@ -7,7 +7,7 @@ Cómo se probó el contrato y qué riesgos cubre. El diseño está en [`contrato
 | Control | Herramienta | Resultado |
 |---|---|---|
 | Tests unitarios | Foundry (`forge test`) | 29 tests, todos pasan |
-| Tests *fuzz* | Foundry, 256 casos al azar por test | 3 tests, todos pasan |
+| Tests *fuzz* | Foundry, 256 casos al azar por test | 4 tests, todos pasan |
 | Cobertura | `forge coverage` | **100 %** de líneas, instrucciones, ramas y funciones de `PasarelaPago.sol` |
 | Análisis estático | Slither 0.11.6 | **Sin hallazgos High ni Medium** (2 avisos Low/Informational justificados). Corre en el CI en cada push y PR, y falla si aparece uno High o Medium |
 | Formato | `forge fmt --check` | En el CI de GitHub Actions, en cada push y PR |
@@ -17,7 +17,7 @@ Cómo se probó el contrato y qué riesgos cubre. El diseño está en [`contrato
 Para reproducirlo:
 
 ```bash
-forge test                       # los 32 tests
+forge test                       # los 44 tests
 forge test --gas-report          # con el gas de cada función
 forge coverage                   # la cobertura
 slither .                        # el análisis estático (con slither.config.json)
@@ -37,7 +37,8 @@ Los tests están en [`test/PasarelaPago.t.sol`](../test/PasarelaPago.t.sol). Cad
 | ETH suelto | 1 | Mandar ETH sin llamar a una función de pago se rechaza |
 | Devolver | 7 | Le llega el ETH al huésped y lo retenido queda en el contrato; solo la plataforma; solo al huésped de la seña; no más de lo depositado; una sola vez; sin seña o sin monto se rechaza; si el huésped no acepta el ETH, se deshace |
 | Liquidar | 8 | Reparte entre propietaria, administrador y plataforma; liquida lo retenido de una cancelación; en partes sin pasarse; no usa el ETH de otra reserva; solo la plataforma; datos inválidos; si un destinatario rechaza el ETH, nadie cobra; **ataque de reentrada** |
-| *Fuzz* | 3 | Ver abajo |
+| Reserva grupal | 11 | Anota cada reserva con su monto y su huésped; un evento por reserva; **todo o nada** si una ya tiene seña; la misma reserva dos veces; los montos tienen que sumar lo enviado; listas inválidas, de más de 10 o con un monto en cero; el tope de 10 se puede pagar; saldo grupal; el saldo no incluye una unidad cancelada; saldo sin seña o ya pagado; cancelar una unidad devuelve solo su parte y la otra se liquida aparte |
+| *Fuzz* | 4 | Ver abajo |
 
 ### Tests *fuzz*
 
@@ -47,6 +48,7 @@ Un test *fuzz* recibe parámetros y Foundry lo corre 256 veces con valores al az
 |---|---|
 | `testFuzz_LoDepositadoEsLaSumaDeLosPagos` | Con cualquier seña y saldo, lo depositado es la suma y es exactamente el ETH que tiene el contrato |
 | `testFuzz_LasReservasNoSeMezclan` | Con cualquier par de reservas distintas, pagar una no toca a la otra |
+| `testFuzz_ElPagoGrupalAnotaCadaMontoEnSuReserva` | Con cualquier grupo de 1 a 10 reservas y montos cualesquiera, cada reserva queda con exactamente su monto y el contrato tiene la suma: el pago grupal no mezcla la plata de las unidades |
 | `testFuzz_NuncaSaleMasDeLoQueEntro` | Con cualquier combinación de seña, saldo, devolución y liquidación: si se pide más de lo disponible se rechaza; si no, sale. Siempre `liberado ≤ depositado` y el ETH del contrato es `depositado − liberado` |
 
 ### Contratos auxiliares de los tests

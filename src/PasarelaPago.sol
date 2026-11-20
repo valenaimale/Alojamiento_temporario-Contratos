@@ -36,6 +36,9 @@ contract PasarelaPago is Ownable, ReentrancyGuard {
         bool devuelta;
     }
 
+    /// @notice Cuántas reservas puede tener como máximo un pago grupal. Pone un techo al gas del bucle.
+    uint256 public constant MAXIMO_GRUPO = 10;
+
     /// @notice Las reservas, por el mismo id que tienen en la base de datos del back.
     mapping(uint256 reservaId => Reserva) public reservas;
 
@@ -66,8 +69,11 @@ contract PasarelaPago is Ownable, ReentrancyGuard {
     error HuespedIncorrecto(uint256 reservaId, address esperado, address recibido);
     /// @notice Se quiso sacar de una reserva más ETH del que le queda.
     error FondosInsuficientes(uint256 reservaId, uint256 disponible, uint256 pedido);
-    /// @notice Las listas de una liquidación están vacías o no tienen el mismo largo.
+    /// @notice Las listas de una liquidación o de un pago grupal están vacías, no tienen el mismo largo,
+    ///         o el grupo tiene más de MAXIMO_GRUPO reservas.
     error ListasInvalidas();
+    /// @notice En un pago grupal, los montos no suman lo que se mandó.
+    error SumaIncorrecta(uint256 montos, uint256 enviado);
     /// @notice Un destinatario de la liquidación es la dirección cero.
     error DestinatarioInvalido();
     /// @notice El destinatario no aceptó el ETH (por ejemplo, un contrato sin forma de recibirlo).
@@ -85,29 +91,43 @@ contract PasarelaPago is Ownable, ReentrancyGuard {
     /// @dev Queda anotado como el huésped de la reserva: a esa billetera se le devuelve si cancela.
     /// @param reservaId El id de la reserva en la base de datos.
     function pagarSena(uint256 reservaId) external payable {
-        if (msg.value == 0) revert MontoInvalido();
-        Reserva storage reserva = reservas[reservaId];
-        if (reserva.huesped != address(0)) revert SenaYaPagada(reservaId);
-
-        reserva.huesped = msg.sender;
-        reserva.depositado += msg.value;
-
-        emit PagoRealizado(reservaId, msg.sender, msg.value, Tipo.Sena);
+        _anotarSena(reservaId, msg.value);
     }
 
     /// @notice Se paga el saldo de una reserva que ya tiene la seña. Lo puede pagar cualquier billetera.
     /// @param reservaId El id de la reserva en la base de datos.
     function pagarSaldo(uint256 reservaId) external payable {
-        if (msg.value == 0) revert MontoInvalido();
-        Reserva storage reserva = reservas[reservaId];
-        if (reserva.huesped == address(0)) revert SinSena(reservaId);
-        if (reserva.devuelta) revert ReservaDevuelta(reservaId);
-        if (reserva.saldoPagado) revert SaldoYaPagado(reservaId);
+        _anotarSaldo(reservaId, msg.value);
+    }
 
-        reserva.saldoPagado = true;
-        reserva.depositado += msg.value;
+    // ---------- Pagos de una reserva grupal ----------
+    // Una reserva grupal son varias reservas (una por unidad, cada una de su propietario) que paga un mismo huésped
+    // en UNA sola transacción. Después de pagar, cada reserva queda anotada por separado, igual que si se hubiera
+    // pagado sola: se devuelve y se liquida unidad por unidad con `devolver` y `liquidar`, sin funciones grupales.
 
-        emit PagoRealizado(reservaId, msg.sender, msg.value, Tipo.Saldo);
+    /// @notice El huésped paga en una sola transacción la seña de todas las reservas de un grupo.
+    /// @dev Todo o nada: si alguna reserva ya tiene seña (o un monto es cero), se revierte la transacción entera.
+    ///      El huésped queda anotado en cada reserva, así cada unidad se le puede devolver por separado.
+    ///      Se emite un `PagoRealizado` por reserva, el mismo evento que en un pago individual.
+    /// @param reservaIds Los ids de las reservas del grupo en la base de datos (hasta MAXIMO_GRUPO).
+    /// @param montos Lo que corresponde a cada reserva, en wei, en el mismo orden. Tienen que sumar lo que se manda.
+    function pagarSenaGrupal(uint256[] calldata reservaIds, uint256[] calldata montos) external payable {
+        _controlarGrupo(reservaIds, montos, msg.value);
+        for (uint256 i = 0; i < reservaIds.length; i++) {
+            _anotarSena(reservaIds[i], montos[i]);
+        }
+    }
+
+    /// @notice Se paga en una sola transacción el saldo de todas las reservas de un grupo.
+    /// @dev Todo o nada, igual que la seña: si alguna no tiene seña, ya tuvo su devolución (se canceló esa unidad)
+    ///      o ya tiene el saldo pagado, se revierte entera. Por eso el back manda solo las unidades que siguen vigentes.
+    /// @param reservaIds Los ids de las reservas del grupo (hasta MAXIMO_GRUPO).
+    /// @param montos El saldo de cada reserva, en wei, en el mismo orden. Tienen que sumar lo que se manda.
+    function pagarSaldoGrupal(uint256[] calldata reservaIds, uint256[] calldata montos) external payable {
+        _controlarGrupo(reservaIds, montos, msg.value);
+        for (uint256 i = 0; i < reservaIds.length; i++) {
+            _anotarSaldo(reservaIds[i], montos[i]);
+        }
     }
 
     // ---------- Salidas de ETH (solo la plataforma) ----------
@@ -182,6 +202,47 @@ contract PasarelaPago is Ownable, ReentrancyGuard {
     function disponible(uint256 reservaId) external view returns (uint256) {
         Reserva storage reserva = reservas[reservaId];
         return reserva.depositado - reserva.liberado;
+    }
+
+    // ---------- Internas ----------
+
+    /// @dev Anota la seña de una reserva: la billetera que paga queda como su huésped. La usan el pago individual y
+    ///      el grupal, así las dos siguen exactamente las mismas reglas.
+    function _anotarSena(uint256 reservaId, uint256 monto) private {
+        if (monto == 0) revert MontoInvalido();
+        Reserva storage reserva = reservas[reservaId];
+        if (reserva.huesped != address(0)) revert SenaYaPagada(reservaId);
+
+        reserva.huesped = msg.sender;
+        reserva.depositado += monto;
+
+        emit PagoRealizado(reservaId, msg.sender, monto, Tipo.Sena);
+    }
+
+    /// @dev Anota el saldo de una reserva que ya tiene la seña (una sola vez, y nunca después de una devolución).
+    function _anotarSaldo(uint256 reservaId, uint256 monto) private {
+        if (monto == 0) revert MontoInvalido();
+        Reserva storage reserva = reservas[reservaId];
+        if (reserva.huesped == address(0)) revert SinSena(reservaId);
+        if (reserva.devuelta) revert ReservaDevuelta(reservaId);
+        if (reserva.saldoPagado) revert SaldoYaPagado(reservaId);
+
+        reserva.saldoPagado = true;
+        reserva.depositado += monto;
+
+        emit PagoRealizado(reservaId, msg.sender, monto, Tipo.Saldo);
+    }
+
+    /// @dev Controla las listas de un pago grupal: no vacías, del mismo largo, de hasta MAXIMO_GRUPO reservas, y que
+    ///      los montos sumen exactamente lo que se mandó (ni un wei de más queda sin dueño, ni uno de menos).
+    function _controlarGrupo(uint256[] calldata reservaIds, uint256[] calldata montos, uint256 enviado) private pure {
+        uint256 cantidad = reservaIds.length;
+        if (cantidad == 0 || cantidad > MAXIMO_GRUPO || cantidad != montos.length) revert ListasInvalidas();
+        uint256 total = 0;
+        for (uint256 i = 0; i < cantidad; i++) {
+            total += montos[i];
+        }
+        if (total != enviado) revert SumaIncorrecta(total, enviado);
     }
 
     // ---------- Seguridad ----------

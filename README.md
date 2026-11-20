@@ -27,6 +27,7 @@ El registro completo del despliegue está en [`broadcast/Desplegar.s.sol/84532/r
 |---|---|---|---|
 | El huésped reserva | El huésped (MetaMask) | `pagarSena(reservaId)` | Entra al contrato y queda retenido |
 | Antes del ingreso | Cualquier billetera (MetaMask) | `pagarSaldo(reservaId)` | Entra al contrato y queda retenido |
+| Reserva grupal (varias unidades) | El huésped (MetaMask) | `pagarSenaGrupal(ids, montos)` y después `pagarSaldoGrupal(ids, montos)` | Una sola transacción para todo el grupo, pero cada reserva queda anotada por separado, con su monto. Desde ahí, cada unidad se devuelve y se liquida sola, con `devolver` y `liquidar` |
 | El huésped ingresa | La plataforma (el back) | `liquidar(reservaId, destinatarios, montos)` | Sale hacia el propietario, el administrador y la comisión de la plataforma |
 | El huésped cancela | La plataforma (el back) | `devolver(reservaId, huesped, monto)` | Le vuelve al huésped lo que no se retiene. Lo retenido se liquida después con `liquidar` |
 
@@ -42,6 +43,8 @@ El contrato **no conoce los precios ni la política de cancelación**: están en
 |---|---|---|
 | `pagarSena(uint256 reservaId)` *payable* | El huésped | Con ETH. Una sola vez por reserva. Anota al huésped |
 | `pagarSaldo(uint256 reservaId)` *payable* | Cualquiera | Con ETH. Solo con seña, sin devolución, y una sola vez |
+| `pagarSenaGrupal(uint256[] reservaIds, uint256[] montos)` *payable* | El huésped | La seña de varias reservas en una transacción (hasta `MAXIMO_GRUPO` = 10). Los montos tienen que sumar lo enviado. Cada reserva sigue las reglas de `pagarSena`; si una falla, no se paga ninguna |
+| `pagarSaldoGrupal(uint256[] reservaIds, uint256[] montos)` *payable* | Cualquiera | El saldo de varias reservas en una transacción, con las reglas de `pagarSaldo` en cada una. Todo o nada: no se incluye una unidad cancelada |
 | `devolver(uint256 reservaId, address huesped, uint256 monto)` | La plataforma | Al huésped de la seña, una sola vez, sin pasarse de lo disponible. Después la reserva no acepta más pagos |
 | `liquidar(uint256 reservaId, address[] destinatarios, uint256[] montos)` | La plataforma | Varias veces si hace falta, sin pasarse de lo disponible. Si un destinatario no acepta el ETH, se deshace entera |
 | `disponible(uint256 reservaId)` *view* | Cualquiera | Lo que le queda a la reserva en el contrato, en wei |
@@ -59,12 +62,16 @@ Los montos van en **wei** (1 ETH = 10¹⁸ wei). `reservaId` es el id de la rese
 | `Devolucion(uint256 indexed reservaId, address indexed huesped, uint256 monto)` | | `0x863d633bde39b1de066d4d8f336fb58af95304f73c18bde19f376fc74ebb18d2` |
 | `Liquidacion(uint256 indexed reservaId, address indexed destinatario, uint256 monto)` | Uno por destinatario | `0x16ce0b50c4467a90f7f08794f1f4b069f3a2b20648da22d871bc3ffdb146882e` |
 
+Un pago grupal emite un `PagoRealizado` **por reserva** en la misma transacción, así que el back lo verifica igual que un pago individual, reserva por reserva.
+
 En un log, `topics[1]` es el `reservaId` y `topics[2]` la billetera (los dos con ceros a la izquierda hasta 32 bytes). En `data` van el `monto` y, en `PagoRealizado`, el `tipo`. **El back tiene que controlar además que el log lo emitió la dirección de este contrato**: cualquiera puede desplegar otro contrato con un evento del mismo nombre.
 
 | Función | Selector |
 |---|---|
 | `pagarSena(uint256)` | `0xa2034aa4` |
 | `pagarSaldo(uint256)` | `0x78bcbeeb` |
+| `pagarSenaGrupal(uint256[],uint256[])` | `0x434b9988` |
+| `pagarSaldoGrupal(uint256[],uint256[])` | `0x85937568` |
 | `devolver(uint256,address,uint256)` | `0xfd7f3319` |
 | `liquidar(uint256,address[],uint256[])` | `0xfc500b5f` |
 
@@ -117,7 +124,7 @@ Un contrato desplegado **no se puede modificar**. Si hace falta un cambio, se de
 
 ## Calidad y seguridad
 
-- **Tests:** 32, con 3 *fuzz* de 256 casos cada uno. Incluyen un ataque de reentrada y destinatarios que rechazan el ETH.
+- **Tests:** 44, con 4 *fuzz* de 256 casos cada uno. Incluyen un ataque de reentrada y destinatarios que rechazan el ETH.
 - **Cobertura:** 100 % de líneas, instrucciones, ramas y funciones de `PasarelaPago.sol`.
 - **Slither** 0.11.6 (`slither .`, con [`slither.config.json`](slither.config.json)): **sin hallazgos High ni Medium**. Corre en el CI en cada push y PR, y falla si aparece uno. Quedan dos avisos, revisados y aceptados:
 
