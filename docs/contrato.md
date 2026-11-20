@@ -75,6 +75,8 @@ stateDiagram-v2
 |---|---|---|---|
 | `pagarSena(reservaId)` *payable* | Cualquier billetera (el huésped) | Que venga ETH y que la reserva no tenga seña. Anota al huésped | `PagoRealizado(…, tipo = 0)` |
 | `pagarSaldo(reservaId)` *payable* | Cualquier billetera | Que venga ETH, que haya seña, que no haya devolución y que el saldo no esté pago | `PagoRealizado(…, tipo = 1)` |
+| `pagarSenaGrupal(reservaIds[], montos[])` *payable* | Cualquier billetera (el huésped) | Listas del mismo largo, no vacías y de hasta `MAXIMO_GRUPO` (10); que los montos sumen lo enviado; y en cada reserva, lo mismo que `pagarSena`. Todo o nada | `PagoRealizado(…, tipo = 0)`, uno por reserva |
+| `pagarSaldoGrupal(reservaIds[], montos[])` *payable* | Cualquier billetera | Las mismas listas, y en cada reserva lo mismo que `pagarSaldo`. Todo o nada | `PagoRealizado(…, tipo = 1)`, uno por reserva |
 | `devolver(reservaId, huesped, monto)` | Solo la plataforma | Que haya seña, que no se haya devuelto antes, que `huesped` sea quien pagó la seña y que `monto ≤ disponible` | `Devolucion` |
 | `liquidar(reservaId, destinatarios[], montos[])` | Solo la plataforma | Listas del mismo largo y no vacías, sin la dirección cero ni montos en cero, y que la suma sea `≤ disponible` | `Liquidacion` (una por destinatario) |
 | `disponible(reservaId)` *view* | Cualquiera | — | — |
@@ -140,6 +142,8 @@ El back **no confía en el front**: con el `tx_hash` lee el recibo de la transac
 | 10 | Liquidación **todo o nada** | Nadie cobra a medias; la plataforma puede repetirla sin el destinatario que falló | Patrón *pull* (cada uno retira lo suyo): más seguro ante destinatarios maliciosos, pero obliga a propietarios y administradores a firmar un retiro |
 | 11 | **Sin proxy** (no actualizable) | Más simple y sin los riesgos de un proxy; en una red de prueba, redesplegar cuesta casi nada | Patrón *upgradeable* de OpenZeppelin |
 | 12 | Una sola billetera dueña (`Ownable`) | Alcanza para un proyecto académico | Multisig o `AccessControl` con roles separados (ver mejoras) |
+| 13 | **Reserva grupal: solo se agrupa el pago** (`pagarSenaGrupal` y `pagarSaldoGrupal`, 20/11). Cada unidad sigue siendo una reserva propia en el contrato | El pedido es una sola seña y un solo pago para varias unidades de dueños distintos. Si cada reserva queda anotada por separado, `devolver` y `liquidar` siguen igual: cancelar una unidad le devuelve al huésped solo esa parte, y cada propietario cobra lo suyo. Las funciones individuales y las grupales usan el mismo código interno | Una sola "reserva" en el contrato para todo el grupo: mezcla la plata de propietarios distintos y obliga a devolver con `liquidar` |
+| 14 | Tope de **10 reservas** por grupo (`MAXIMO_GRUPO`) | Pone un techo al gas del bucle. Un grupo de 10 cuesta unos 500.000 de gas | Sin tope |
 
 ## 7. Costos
 
@@ -150,10 +154,12 @@ Medidos con `forge test --gas-report` y en el despliegue real (precio del gas en
 | Despliegue | 1.389.190 | 0,0000083 ETH (el real) |
 | `pagarSena` | 68.771 | 0,0000004 ETH |
 | `pagarSaldo` | 54.070 | 0,0000003 ETH |
+| `pagarSenaGrupal` (3 unidades) | 166.582 | 0,000001 ETH |
+| `pagarSaldoGrupal` (3 unidades) | 122.452 | 0,0000007 ETH |
 | `devolver` | 74.464 | 0,0000004 ETH |
 | `liquidar` (1 a 3 destinatarios) | 77.126 (máx. 144.282) | 0,0000005 a 0,0000009 ETH |
 
-El gas de `pagarSena` y `pagarSaldo` lo paga el huésped; el de `devolver` y `liquidar`, la billetera de la plataforma.
+El gas de `pagarSena`, `pagarSaldo` y sus versiones grupales lo paga el huésped; el de `devolver` y `liquidar`, la billetera de la plataforma.
 
 ## 8. Despliegue actual
 

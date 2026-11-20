@@ -438,6 +438,193 @@ contract PasarelaPagoTest is Test {
         assertEq(objetivo.disponible(RESERVA), SENA);
     }
 
+    // ---------- Reserva grupal ----------
+
+    /// @notice La seña grupal anota cada reserva por separado, con su monto y con Juan como huésped de todas.
+    function test_PagarSenaGrupalAnotaCadaReservaConSuMonto() public {
+        // Arrange
+        (uint256[] memory ids, uint256[] memory montos) = _grupo(3);
+
+        // Act
+        vm.prank(juan);
+        pasarela.pagarSenaGrupal{value: _suma(montos)}(ids, montos);
+
+        // Assert
+        for (uint256 i = 0; i < ids.length; i++) {
+            PasarelaPago.Reserva memory reserva = _reserva(ids[i]);
+            assertEq(reserva.huesped, juan);
+            assertEq(reserva.depositado, montos[i]);
+            assertEq(pasarela.disponible(ids[i]), montos[i]);
+        }
+        assertEq(address(pasarela).balance, _suma(montos));
+    }
+
+    /// @notice Se emite un PagoRealizado por reserva, el mismo evento que en un pago individual (el back no cambia).
+    function test_PagarSenaGrupalEmiteUnEventoPorReserva() public {
+        (uint256[] memory ids, uint256[] memory montos) = _grupo(2);
+
+        for (uint256 i = 0; i < ids.length; i++) {
+            vm.expectEmit(true, true, false, true, address(pasarela));
+            emit PagoRealizado(ids[i], juan, montos[i], PasarelaPago.Tipo.Sena);
+        }
+        vm.prank(juan);
+        pasarela.pagarSenaGrupal{value: _suma(montos)}(ids, montos);
+    }
+
+    /// @notice Todo o nada: si una reserva del grupo ya tiene seña, no se paga ninguna y el ETH vuelve.
+    function test_SiUnaReservaDelGrupoYaTieneSenaNoSePagaNinguna() public {
+        // Arrange: la segunda reserva del grupo ya la pagó otro
+        (uint256[] memory ids, uint256[] memory montos) = _grupo(3);
+        vm.prank(otro);
+        pasarela.pagarSena{value: SENA}(ids[1]);
+
+        // Act y Assert
+        vm.prank(juan);
+        vm.expectRevert(abi.encodeWithSelector(PasarelaPago.SenaYaPagada.selector, ids[1]));
+        pasarela.pagarSenaGrupal{value: _suma(montos)}(ids, montos);
+        assertEq(_reserva(ids[0]).huesped, address(0));
+        assertEq(_reserva(ids[2]).huesped, address(0));
+        assertEq(juan.balance, 10 ether);
+    }
+
+    /// @notice La misma reserva dos veces en un grupo se rechaza (la segunda vez ya tiene seña).
+    function test_LaMismaReservaDosVecesEnUnGrupoSeRechaza() public {
+        (uint256[] memory ids, uint256[] memory montos) = _grupo(2);
+        ids[1] = ids[0];
+
+        vm.prank(juan);
+        vm.expectRevert(abi.encodeWithSelector(PasarelaPago.SenaYaPagada.selector, ids[0]));
+        pasarela.pagarSenaGrupal{value: _suma(montos)}(ids, montos);
+    }
+
+    /// @notice Los montos tienen que sumar exactamente lo que se manda: ni de más ni de menos.
+    function test_LosMontosDelGrupoTienenQueSumarLoEnviado() public {
+        (uint256[] memory ids, uint256[] memory montos) = _grupo(2);
+        uint256 suma = _suma(montos);
+
+        vm.startPrank(juan);
+        vm.expectRevert(abi.encodeWithSelector(PasarelaPago.SumaIncorrecta.selector, suma, suma + 1));
+        pasarela.pagarSenaGrupal{value: suma + 1}(ids, montos);
+        vm.expectRevert(abi.encodeWithSelector(PasarelaPago.SumaIncorrecta.selector, suma, suma - 1));
+        pasarela.pagarSenaGrupal{value: suma - 1}(ids, montos);
+        vm.stopPrank();
+    }
+
+    /// @notice Listas vacías, de distinto largo o de más de MAXIMO_GRUPO reservas se rechazan; un monto en cero también.
+    function test_UnGrupoConListasInvalidasSeRechaza() public {
+        (uint256[] memory ids, uint256[] memory montos) = _grupo(2);
+        uint256[] memory vacia = new uint256[](0);
+        uint256[] memory unMonto = _montos(1, SENA);
+        (uint256[] memory muchos, uint256[] memory montosDeMuchos) = _grupo(pasarela.MAXIMO_GRUPO() + 1);
+
+        vm.startPrank(juan);
+        vm.expectRevert(PasarelaPago.ListasInvalidas.selector);
+        pasarela.pagarSenaGrupal{value: 0}(vacia, vacia);
+        vm.expectRevert(PasarelaPago.ListasInvalidas.selector);
+        pasarela.pagarSenaGrupal{value: SENA}(ids, unMonto);
+        vm.expectRevert(PasarelaPago.ListasInvalidas.selector);
+        pasarela.pagarSenaGrupal{value: _suma(montosDeMuchos)}(muchos, montosDeMuchos);
+
+        montos[1] = 0;
+        vm.expectRevert(PasarelaPago.MontoInvalido.selector);
+        pasarela.pagarSenaGrupal{value: _suma(montos)}(ids, montos);
+        vm.stopPrank();
+    }
+
+    /// @notice Un grupo de MAXIMO_GRUPO reservas sí se puede pagar (el tope es inclusivo).
+    function test_UnGrupoDelTamanioMaximoSePaga() public {
+        (uint256[] memory ids, uint256[] memory montos) = _grupo(pasarela.MAXIMO_GRUPO());
+
+        vm.prank(juan);
+        pasarela.pagarSenaGrupal{value: _suma(montos)}(ids, montos);
+
+        assertEq(address(pasarela).balance, _suma(montos));
+    }
+
+    /// @notice El saldo grupal se suma a cada reserva y la deja con el saldo pagado.
+    function test_PagarSaldoGrupalSumaLoDepositadoDeCadaReserva() public {
+        // Arrange
+        (uint256[] memory ids, uint256[] memory senas) = _grupoConSena(3);
+        uint256[] memory saldos = _montos(3, SALDO);
+
+        // Act
+        vm.prank(juan);
+        pasarela.pagarSaldoGrupal{value: _suma(saldos)}(ids, saldos);
+
+        // Assert
+        for (uint256 i = 0; i < ids.length; i++) {
+            PasarelaPago.Reserva memory reserva = _reserva(ids[i]);
+            assertTrue(reserva.saldoPagado);
+            assertEq(reserva.depositado, senas[i] + saldos[i]);
+        }
+    }
+
+    /// @notice El saldo grupal no incluye una unidad ya cancelada (devuelta): si viene, se revierte entero.
+    function test_ElSaldoGrupalNoIncluyeUnaUnidadDevuelta() public {
+        // Arrange: se cancela la primera unidad del grupo
+        (uint256[] memory ids, uint256[] memory senas) = _grupoConSena(3);
+        vm.prank(plataforma);
+        pasarela.devolver(ids[0], juan, senas[0]);
+        uint256[] memory saldos = _montos(3, SALDO);
+
+        // Act y Assert: con la unidad cancelada se rechaza; con las dos que siguen, se paga
+        vm.startPrank(juan);
+        vm.expectRevert(abi.encodeWithSelector(PasarelaPago.ReservaDevuelta.selector, ids[0]));
+        pasarela.pagarSaldoGrupal{value: _suma(saldos)}(ids, saldos);
+
+        uint256[] memory vigentes = new uint256[](2);
+        vigentes[0] = ids[1];
+        vigentes[1] = ids[2];
+        uint256[] memory saldosVigentes = _montos(2, SALDO);
+        pasarela.pagarSaldoGrupal{value: _suma(saldosVigentes)}(vigentes, saldosVigentes);
+        vm.stopPrank();
+
+        assertTrue(_reserva(ids[1]).saldoPagado);
+        assertFalse(_reserva(ids[0]).saldoPagado);
+    }
+
+    /// @notice El saldo grupal de reservas sin seña, o con el saldo ya pagado, se rechaza.
+    function test_ElSaldoGrupalSinSenaOYaPagadoSeRechaza() public {
+        (uint256[] memory sinSena,) = _grupo(2);
+        uint256[] memory saldos = _montos(2, SALDO);
+        vm.prank(juan);
+        vm.expectRevert(abi.encodeWithSelector(PasarelaPago.SinSena.selector, sinSena[0]));
+        pasarela.pagarSaldoGrupal{value: _suma(saldos)}(sinSena, saldos);
+
+        (uint256[] memory conSena,) = _grupoConSena(2);
+        vm.startPrank(juan);
+        pasarela.pagarSaldoGrupal{value: _suma(saldos)}(conSena, saldos);
+        vm.expectRevert(abi.encodeWithSelector(PasarelaPago.SaldoYaPagado.selector, conSena[0]));
+        pasarela.pagarSaldoGrupal{value: _suma(saldos)}(conSena, saldos);
+        vm.stopPrank();
+    }
+
+    /// @notice Cancelar una unidad del grupo le devuelve a Juan solo la parte de esa unidad; la otra no se toca y
+    ///         se liquida a su propietaria, sin poder usar el ETH de la cancelada.
+    function test_UnaUnidadDelGrupoSeDevuelveYLaOtraSeLiquidaPorSeparado() public {
+        // Arrange
+        (uint256[] memory ids, uint256[] memory senas) = _grupoConSena(2);
+        uint256 saldoDeJuan = juan.balance;
+
+        // Act: se cancela la primera unidad y se liquida la segunda
+        vm.prank(plataforma);
+        pasarela.devolver(ids[0], juan, senas[0]);
+        _liquidarReservaA(ids[1], propietaria, senas[1]);
+
+        // Assert
+        assertEq(juan.balance, saldoDeJuan + senas[0]);
+        assertEq(propietaria.balance, senas[1]);
+        assertEq(pasarela.disponible(ids[0]), 0);
+        assertEq(pasarela.disponible(ids[1]), 0);
+        // a la segunda no le queda nada: no se puede liquidar con lo de la primera
+        address payable[] memory destinatarios = new address payable[](1);
+        destinatarios[0] = propietaria;
+        uint256[] memory montos = _montos(1, 1);
+        vm.prank(plataforma);
+        vm.expectRevert(abi.encodeWithSelector(PasarelaPago.FondosInsuficientes.selector, ids[1], 0, 1));
+        pasarela.liquidar(ids[1], destinatarios, montos);
+    }
+
     // ---------- Fuzz ----------
 
     /// @notice Para cualquier par de montos, lo depositado es la seña más el saldo, y es lo que tiene el contrato.
@@ -522,7 +709,68 @@ contract PasarelaPagoTest is Test {
         assertEq(propietaria.balance, liquidado);
     }
 
+    /// @notice Para cualquier grupo (de 1 a MAXIMO_GRUPO reservas, con montos cualesquiera), cada reserva queda
+    ///         con exactamente su monto y el contrato tiene la suma: el pago grupal no mezcla la plata de las unidades.
+    function testFuzz_ElPagoGrupalAnotaCadaMontoEnSuReserva(uint256 cantidad, uint256 semilla) public {
+        cantidad = bound(cantidad, 1, pasarela.MAXIMO_GRUPO());
+        uint256[] memory ids = new uint256[](cantidad);
+        uint256[] memory montos = new uint256[](cantidad);
+        for (uint256 i = 0; i < cantidad; i++) {
+            ids[i] = 1000 + i;
+            montos[i] = bound(uint256(keccak256(abi.encode(semilla, i))), 1, 0.5 ether);
+        }
+
+        vm.prank(juan);
+        pasarela.pagarSenaGrupal{value: _suma(montos)}(ids, montos);
+
+        for (uint256 i = 0; i < cantidad; i++) {
+            assertEq(_reserva(ids[i]).depositado, montos[i]);
+            assertEq(_reserva(ids[i]).huesped, juan);
+        }
+        assertEq(address(pasarela).balance, _suma(montos));
+    }
+
     // ---------- Ayudas ----------
+
+    /// @notice Un grupo de `cantidad` reservas (ids 100, 101, …) con señas distintas: 0.001, 0.002, … ether.
+    function _grupo(uint256 cantidad) private pure returns (uint256[] memory ids, uint256[] memory montos) {
+        ids = new uint256[](cantidad);
+        montos = new uint256[](cantidad);
+        for (uint256 i = 0; i < cantidad; i++) {
+            ids[i] = 100 + i;
+            montos[i] = SENA * (i + 1);
+        }
+    }
+
+    /// @notice Un grupo de `cantidad` reservas con la seña ya pagada por Juan. Devuelve los ids y las señas.
+    function _grupoConSena(uint256 cantidad) private returns (uint256[] memory ids, uint256[] memory montos) {
+        (ids, montos) = _grupo(cantidad);
+        vm.prank(juan);
+        pasarela.pagarSenaGrupal{value: _suma(montos)}(ids, montos);
+    }
+
+    /// @notice Una lista de `cantidad` montos iguales.
+    function _montos(uint256 cantidad, uint256 monto) private pure returns (uint256[] memory montos) {
+        montos = new uint256[](cantidad);
+        for (uint256 i = 0; i < cantidad; i++) {
+            montos[i] = monto;
+        }
+    }
+
+    /// @notice La suma de una lista de montos.
+    function _suma(uint256[] memory montos) private pure returns (uint256 total) {
+        for (uint256 i = 0; i < montos.length; i++) {
+            total += montos[i];
+        }
+    }
+
+    /// @notice La plataforma le liquida a un solo destinatario el monto indicado de una reserva cualquiera.
+    function _liquidarReservaA(uint256 reservaId, address payable destinatario, uint256 monto) private {
+        address payable[] memory destinatarios = new address payable[](1);
+        destinatarios[0] = destinatario;
+        vm.prank(plataforma);
+        pasarela.liquidar(reservaId, destinatarios, _montos(1, monto));
+    }
 
     /// @notice Lee una reserva entera del contrato (el getter público la devuelve como una tupla de 5 valores).
     function _reserva(uint256 reservaId) private view returns (PasarelaPago.Reserva memory reserva) {
