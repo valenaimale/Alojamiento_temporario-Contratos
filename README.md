@@ -13,10 +13,11 @@ El contrato inteligente `PasarelaPago` cobra en **ETH de prueba** las reservas d
 | Dato | Valor |
 |---|---|
 | Red | Base Sepolia (chain id 84532) |
-| Contrato | [`0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4`](https://sepolia.basescan.org/address/0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4) |
+| Contrato | [`0x00E210a57DC178a9c8bBDAdEf130A86434BFafdd`](https://sepolia.basescan.org/address/0x00E210a57DC178a9c8bBDAdEf130A86434BFafdd) (desde el 20/11, con el pago grupal) |
 | Dueña (billetera de la plataforma) | [`0x734779432891a4E2C9152FdF6eCFFC34825b36B4`](https://sepolia.basescan.org/address/0x734779432891a4E2C9152FdF6eCFFC34825b36B4) |
-| Transacción de despliegue | [`0x8950fa26…3c4ec7`](https://sepolia.basescan.org/tx/0x8950fa266242149b817193c638a1a66c2846fda46e899486760ea761633c4ec7) |
-| Código verificado | [Blockscout](https://base-sepolia.blockscout.com/address/0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4?tab=contract) y [Sourcify](https://repo.sourcify.dev/84532/0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4) (*exact match*) |
+| Transacción de despliegue | [`0x51a4a5d2…82e7ed`](https://sepolia.basescan.org/tx/0x51a4a5d25e167c484d05768cb1fa3b7383726463c6f499242e3f719eb782e7ed) |
+| Código verificado | [Sourcify](https://repo.sourcify.dev/84532/0x00E210a57DC178a9c8bBDAdEf130A86434BFafdd) (*exact match*) |
+| Contrato anterior | [`0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4`](https://sepolia.basescan.org/address/0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4): el primero, sin el pago grupal. Dejó de usarse el 20/11 (decisión #76 del back) |
 | RPC público | `https://sepolia.base.org` |
 
 El registro completo del despliegue está en [`broadcast/Desplegar.s.sol/84532/run-latest.json`](broadcast/Desplegar.s.sol/84532/run-latest.json).
@@ -97,7 +98,7 @@ git submodule update --init --recursive
 
 ## Despliegue
 
-El script [`script/Desplegar.s.sol`](script/Desplegar.s.sol) despliega el contrato con la billetera de la plataforma como dueña. Solo acepta Base Sepolia (84532) o Anvil (31337): se niega a desplegar en una red real. Desplegarlo en Base Sepolia costó 0,0000083 ETH de prueba (1.389.190 de gas; el detalle de costos está en [docs/contrato.md](docs/contrato.md)).
+El script [`script/Desplegar.s.sol`](script/Desplegar.s.sol) despliega el contrato con la billetera de la plataforma como dueña. Solo acepta Base Sepolia (84532) o Anvil (31337): se niega a desplegar en una red real. Desplegarlo en Base Sepolia costó 0,0000078 ETH de prueba (1.558.494 de gas, ya con el pago grupal; el detalle de costos está en [docs/contrato.md](docs/contrato.md)).
 
 **Ensayo local con Anvil** (cuentas de prueba con ETH falso; la clave es la cuenta 0 de Anvil, pública y sin valor):
 
