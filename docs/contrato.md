@@ -151,7 +151,7 @@ Medidos con `forge test --gas-report` y en el despliegue real (precio del gas en
 
 | Operación | Gas (mediana) | Costo aproximado en Base Sepolia |
 |---|---|---|
-| Despliegue | 1.389.190 | 0,0000083 ETH (el real) |
+| Despliegue | 1.558.494 | 0,0000078 ETH (el real, 20/11; el primero, sin el pago grupal: 1.389.190 de gas) |
 | `pagarSena` | 68.771 | 0,0000004 ETH |
 | `pagarSaldo` | 54.070 | 0,0000003 ETH |
 | `pagarSenaGrupal` (3 unidades) | 166.582 | 0,000001 ETH |
@@ -166,7 +166,8 @@ El gas de `pagarSena`, `pagarSaldo` y sus versiones grupales lo paga el huésped
 | Dato | Valor |
 |---|---|
 | Red | Base Sepolia (84532) |
-| Contrato | [`0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4`](https://sepolia.basescan.org/address/0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4) (código verificado en basescan, Blockscout y Sourcify) |
+| Contrato | [`0x00E210a57DC178a9c8bBDAdEf130A86434BFafdd`](https://sepolia.basescan.org/address/0x00E210a57DC178a9c8bBDAdEf130A86434BFafdd) (desde el 20/11, con el pago grupal; código verificado en Sourcify) |
+| Contrato anterior | [`0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4`](https://sepolia.basescan.org/address/0xF9d86D0e7c3D2520103fD11e64174C9e6BcFc0F4): sin el pago grupal, en desuso desde el 20/11. Antes de cambiar se borraron las reservas de prueba (su ETH de prueba quedó en ese contrato) |
 | Dueña | [`0x734779432891a4E2C9152FdF6eCFFC34825b36B4`](https://sepolia.basescan.org/address/0x734779432891a4E2C9152FdF6eCFFC34825b36B4) |
 | Compilador | Solidity 0.8.30, OpenZeppelin Contracts 5.7.0 |
 
